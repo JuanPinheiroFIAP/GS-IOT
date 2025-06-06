@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Sistema de Segurança{% endblock %}
+
+{% block head %}
+<style>
+    main {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 30px;
+    }
+
+    .video-section {
+        grid-column: 1 / 2;
+    }
+
+    .log-panel {
+        grid-column: 2 / 3;
+        max-height: 100%;
+    }
+
+    .video-section img#video-feed {
+        border-radius: 8px;
+        box-shadow: 0 0 15px var(--glow-color);
+        width: 100%;
+        height: auto;
+        max-width: 800px;
+        display: block;
+        margin: 0 auto 25px auto;
+        border: 2px solid var(--accent-red);
+        object-fit: cover;
+        user-select: none;
+    }
+
+    #capturas {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 15px;
+        max-height: 250px;
+        overflow-y: auto;
+        padding-right: 10px;
+        border-top: 1px solid var(--border-color);
+        padding-top: 20px;
+        margin-top: auto;
+    }
+
+    #capturas img {
+        border-radius: 6px;
+        box-shadow: 0 0 8px var(--shadow-color);
+        width: 100%;
+        height: 100px;
+        object-fit: cover;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border: 1px solid var(--border-color);
+    }
+
+    #capturas img:hover {
+        transform: translateY(-5px) scale(1.05);
+        box-shadow: 0 5px 20px var(--glow-color);
+        border-color: var(--accent-red);
+    }
+
+    #log {
+        flex: 1;
+        background-color: var(--bg-dark);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 15px;
+        color: var(--text-dark);
+        font-size: 14px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        font-family: 'Consolas', 'Monaco', monospace;
+        line-height: 1.4;
+        max-height: 400px;
+    }
+
+    button {
+        margin-top: 20px;
+        padding: 12px 25px;
+        background-color: var(--accent-red);
+        border: none;
+        border-radius: 8px;
+        color: var(--text-light);
+        font-weight: 700;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+        user-select: none;
+        box-shadow: 0 4px 10px var(--shadow-color);
+        width: 100%;
+    }
+
+    button:hover {
+        background-color: var(--accent-red-dark);
+        transform: translateY(-2px);
+    }
+
+    #popup {
+        display: none;
+        position: fixed;
+        top: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: var(--accent-red);
+        color: var(--text-light);
+        padding: 20px 40px;
+        font-size: 24px;
+        font-weight: 700;
+        border-radius: 12px;
+        box-shadow: 0 0 30px var(--glow-color);
+        z-index: 9999;
+        user-select: none;
+        animation: pulse 1.5s infinite alternate;
+        border: 2px solid var(--text-light);
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+    }
+
+    @keyframes pulse {
+        0% { box-shadow: 0 0 20px var(--glow-color); }
+        100% { box-shadow: 0 0 45px rgba(255, 0, 0, 0.8); }
+    }
+
+    @media (max-width: 1024px) {
+        main {
+            grid-template-columns: 1fr;
+            padding: 20px;
+        }
+        .video-section, .log-panel {
+            grid-column: 1 / -1;
+            max-height: none;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <section class="card video-section">
+        <h2>Transmissão ao Vivo</h2>
+        <img id="video-feed" src="{{ url_for('video_feed') }}" alt="Feed de vídeo ao vivo" />
+        <h2>Capturas Salvas (Recentes)</h2>
+        <div id="capturas">
+        </div>
+    </section>
+
+    <aside class="card log-panel">
+        <h3>Log de Alertas</h3>
+        <pre id="log" aria-live="polite" aria-atomic="true"></pre>
+        <button id="clear-log" aria-label="Limpar log de alertas">Limpar Log</button>
+    </aside>
+
+    <div id="popup" role="alert" aria-live="assertive" aria-atomic="true">
+        ⚠️ Movimento suspeito detectado! ⚠️
+    </div>
+
+    <script>
+        const evtSource = new EventSource("/alert_stream");
+        const popup = document.getElementById("popup");
+        const log = document.getElementById("log");
+        const clearBtn = document.getElementById("clear-log");
+        const capturasDiv = document.getElementById("capturas");
+
+        function adicionarLog(mensagem) {
+            const horario = new Date().toLocaleTimeString('pt-BR');
+            const newLogEntry = document.createElement('span');
+            newLogEntry.textContent = `[${horario}] ${mensagem}\n`;
+            log.appendChild(newLogEntry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function atualizarCapturas() {
+            fetch('/imagens_atualizadas')
+                .then(response => response.json())
+                .then(imagens => {
+                    capturasDiv.innerHTML = '';
+                    const imagensParaExibir = imagens.slice(0, 10);
+                    imagensParaExibir.forEach(nome => {
+                        const img = document.createElement('img');
+                        img.src = `/static/capturas/${nome}?t=${Date.now()}`;
+                        img.title = nome;
+                        img.alt = `Captura ${nome}`;
+                        img.dataset.filename = nome;
+                        capturasDiv.appendChild(img);
+                    });
+                    capturasDiv.scrollTop = 0;
+                })
+                .catch(error => console.error('Erro ao buscar imagens atualizadas:', error));
+        }
+
+        evtSource.onmessage = function(event) {
+            if (event.data === "alerta_maos") {
+                popup.style.display = "block";
+                adicionarLog("Alerta!");
+                atualizarCapturas();
+                setTimeout(() => {
+                    popup.style.display = "none";
+                }, 3500);
+            }
+        };
+
+        clearBtn.addEventListener('click', () => {
+            log.innerHTML = '';
+            adicionarLog("Log limpo.");
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            atualizarCapturas();
+            document.getElementById('nav-home').classList.add('active');
+        });
+    </script>
+{% endblock %}
