@@ -50,7 +50,7 @@ Alerta disparado:
 
 ## Link do vídeo demonstrativo
 
-[Vídeo demonstrativo do Sistema de Segurança](hhttps://www.youtube.com/watch?v=0tOxd54NOgQ)
+[Vídeo demonstrativo do Sistema de Segurança](https://youtu.be/0tOxd54NOgQ)
 
 ---
 
